@@ -6,10 +6,7 @@ services:
       resources:
         reservations:
           memory: "128M"
-    networks:
-      - npm
-#      - npm_db
-#      - npm_crowdsec
+    network_mode: bridge
     ports:
       - target: 8080
         published: "80"
@@ -98,10 +95,6 @@ services:
       - type: bind
         source: /DATA/AppData/$AppID/mariadb/config
         target: /config
-    networks:
-      - npm
-#      - npm_db
-#      - npm_crowdsec
     container_name: mariadb
 
   crowdsec:
@@ -126,10 +119,6 @@ services:
       - type: bind
         source: /DATA/AppData/$AppID/config/logs
         target: /var/log/nginx:ro
-    networks:
-      - npm
-#      - npm_db
-#      - npm_crowdsec
     security_opt:
       - no-new-privileges=true
 
@@ -156,12 +145,6 @@ services:
           description:
             en_us: Crowdsec config directory.
     container_name: crowdsec
-
-networks:
-  # Define the network for AdGuard Home
-  npm:
-    driver: bridge
-
 
 x-casaos:
   architectures:
