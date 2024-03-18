@@ -1,64 +1,175 @@
-name: nginxproxymanager
+name: nginxproxymanager-with-crowdsec
 services:
   nginxproxymanager:
-    image: jc21/nginx-proxy-manager:2.11.1
+    image: lepresidente/nginx-proxy-manager:latest
     deploy:
       resources:
         reservations:
           memory: "128M"
-    network_mode: bridge
+    networks:
+      - npm
+#      - npm_db
+#      - npm_crowdsec
     ports:
-      - target: 80
+      - target: 8080
         published: "80"
         protocol: tcp
-      - target: 443
+      - target: 4443
         published: "443"
         protocol: tcp
-      - target: 81
+      - target: 8181
         published: "81"
         protocol: tcp
     restart: unless-stopped
     volumes:
       - type: bind
-        source: /DATA/AppData/$AppID/data
-        target: /data
+        source: /DATA/AppData/$AppID/config
+        target: /config
       - type: bind
-        source: /DATA/AppData/$AppID/etc/letsencrypt
-        target: /etc/letsencrypt
+        source: /DATA/AppData/$AppID/crowdsec/templates
+        target: /templates
+    depends_on:
+      - mariadb
+
     x-casaos:
       ports:
         - container: "80"
           description:
             en_us: Nginx HTTP Port
-            zh_cn: Nginx HTTP 端口
-
         - container: "443"
           description:
             en_us: Nginx HTTPS Port
-            zh_cn: Nginx HTTPS 端口
-
         - container: "81"
           description:
             en_us: WebUI Port
-            zh_cn: WebUI 端口
 
       volumes:
-        - container: /data
+        - container: /config
           description:
-            en_us: Nginx Proxy Manager data directory.
-            zh_cn: Nginx 代理管理器数据目录。
-        - container: /etc/letsencrypt
+            en_us: Nginx Proxy Manager config directory.
+        - container: /templates
           description:
-            en_us: Nginx Proxy Manager letsencrypt directory.
-            zh_cn: Nginx 代理管理器 letsencrypt 目录。
-    container_name: nginxproxymanager
+            en_us: Crowdsec templates directory.
+    container_name: npm
+
+  mariadb:
+    image: linuxserver/mariadb:10.11.5
+    restart: unless-stopped
+    environment:
+      PUID: $PUID
+      PGID: $PGID
+      TZ: $TZ
+      MYSQL_ROOT_PASSWORD: 'casaos'
+      MYSQL_DATABASE: 'casaos'
+      MYSQL_USER: 'casaos'
+      MYSQL_PASSWORD: 'casaos'
+      REMOTE_SQL: ''
+    x-casaos:
+      envs:
+        - container: PUID
+          description:
+            en_us: for UserID
+        - container: PGID
+          description:
+            en_us: for GroupID
+        - container: TZ
+          description:
+            en_us: specify a timezone to use, see this list.
+        - container: MYSQL_ROOT_PASSWORD
+          description:
+            en_us: Set this to root password for installation (minimum 4 characters & non-alphanumeric passwords must be properly escaped).
+        - container: MYSQL_DATABASE
+          description:
+            en_us: Specify the name of a database to be created on image startup.
+        - container: MYSQL_USER
+          description:
+            en_us: This user will have superuser access to the database specified by MYSQL_DATABASE (do not use root here).
+        - container: MYSQL_PASSWORD
+          description:
+            en_us: Set this to the password you want to use for you MYSQL_USER (minimum 4 characters & non-alphanumeric passwords must be properly escaped).
+        - container: REMOTE_SQL
+          description:
+            en_us: Set this to ingest sql files from an http/https endpoint (comma seperated array).
+    ports:
+      - target: 3306
+        published: "3306"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /DATA/AppData/$AppID/mariadb/config
+        target: /config
+    networks:
+      - npm
+#      - npm_db
+#      - npm_crowdsec
+    container_name: mariadb
+
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.6.0
+    restart: unless-stopped
+    environment:
+      PUID: $PUID
+      PGID: $PGID
+      TZ: $TZ
+      COLLECTIONS: crowdsecurity/nginx-proxy-manager
+      CROWDSEC_API: $CROWDSEC_API
+    volumes:
+      - type: bind
+        source: /DATA/AppData/$AppID/crowdsec/data
+        target: /var/lib/crowdsec/data
+      - type: bind
+        source: /DATA/AppData/$AppID/crowdsec/config
+        target: /etc/crowdsec
+      - type: bind
+        source: /var/log/auth.log
+        target: /var/log/auth.log:ro
+      - type: bind
+        source: /DATA/AppData/$AppID/config/logs
+        target: /var/log/nginx:ro
+    networks:
+      - npm
+#      - npm_db
+#      - npm_crowdsec
+    security_opt:
+      - no-new-privileges=true
+
+    x-casaos:
+      envs:
+        - container: PUID
+          description:
+            en_us: for UserID
+        - container: PGID
+          description:
+            en_us: for GroupID
+        - container: TZ
+          description:
+            en_us: specify a timezone to use, see this list.
+        - container: CROWDSEC_API
+          description:
+            en_us: Set Crowdsec API to generate with `docker exec crowdsec_npm cscli bouncers add npm-proxy`.
+
+      volumes:
+        - container: /crowdsec/data
+          description:
+            en_us: Crowdsec data directory.
+        - container: /crowdsec/config
+          description:
+            en_us: Crowdsec config directory.
+    container_name: crowdsec
+
+networks:
+  # Define the network for AdGuard Home
+  npm:
+    driver: bridge
+
+
 x-casaos:
   architectures:
     - amd64
     - arm64
     - arm
-  main: nginxproxymanager
-  author: CasaOS Team
+  main: nginxproxymanagerwithcrowdsec
+  author: McFly
   category: Network
   description:
     en_us: Nginx Proxy Manager is a simple, powerful tool to help you host multiple websites on a single server.

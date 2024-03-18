@@ -5,16 +5,4 @@
   {
     "appid": "adguard-home"
   },
-  {
-    "appid": "jellyfin"
-  },
-  {
-    "appid": "photoprism"
-  },
-  {
-    "appid": "bazarr"
-  },
-  {
-    "appid": "lidarr"
-  }
 ]

@@ -1,7 +1,7 @@
 {
     "version": "2.0",
-    "title": "Nginx Proxy Manager",
-    "name": "nginxproxymanager",
+    "title": "Nginx Proxy Manager With Crowdsec",
+    "name": "nginxproxymanagerwithcrowdsec",
     "icon": "https://cdn.jsdelivr.net/gh/IceWhaleTech/CasaOS-AppStore@main/Apps/NginxProxyManager/icon.png",
     "tagline": "Just what the name says",
     "overview": "Managing Nginx proxy hosts with a simple, powerful interface.",
@@ -21,27 +21,27 @@
         "donate_link": ""
     },
     "adaptor": {
-        "name": "CasaOS Team",
-        "website": "https://www.casaos.io",
+        "name": "McFly",
+        "website": "https://mcflypartages.fr",
         "donate_text": "", 
         "donate_link": ""
     },
     "support": "https://discord.gg/knqAbbBbeX",
     "website": "https://www.casaos.io",
     "container": {
-        "image": "jc21/nginx-proxy-manager:latest",
+        "image": "lepresidente/nginx-proxy-manager:latest",
         "shell": "sh",
         "privileged": false,
         "network_model": "bridge",
         "web_ui": {
-            "http": "81",
+            "http": "8181",
             "path": "/"
         },
         "health_check": "",
         "envs": [],
         "ports": [
             {
-                "container": "80",
+                "container": "8080",
                 "host": "80",
                 "type": "tcp",
                 "allocation": "required",
@@ -49,7 +49,7 @@
                 "description": "Nginx HTTP Port"
             },
             {
-                "container": "443",
+                "container": "4443",
                 "host": "443",
                 "type": "tcp",
                 "allocation": "required",
@@ -57,7 +57,7 @@
                 "description": "Nginx HTTPS Port"
             },
             {
-                "container": "81",
+                "container": "8181",
                 "host": "81",
                 "type": "tcp",
                 "allocation": "preferred",
@@ -67,20 +67,20 @@
         ],
         "volumes": [
             {
-                "container": "/data",
-                "host": "/DATA/AppData/$AppID/data",
+                "container": "/config",
+                "host": "/DATA/AppData/$AppID/config",
                 "mode": "rw",
                 "allocation": "automatic",
                 "configurable": "advanced",
-                "description": "Nginx Proxy Manager data directory."
+                "description": "Nginx Proxy Manager config directory."
             },
             {
-                "container": "/etc/letsencrypt",
-                "host": "/DATA/AppData/$AppID/etc/letsencrypt",
-                "mode": "rw",
+                "container": "/templates",
+                "host": "/DATA/AppData/$AppID/crowdsec/templates",
+                "mode": "ro",
                 "allocation": "automatic",
                 "configurable": "advanced",
-                "description": "Nginx Proxy Manager letsencrypt directory."
+                "description": "Crowdsec templates directory."
             }
         ],
         "devices": [],
