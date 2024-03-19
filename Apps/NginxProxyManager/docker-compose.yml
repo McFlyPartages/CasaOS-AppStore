@@ -1,7 +1,11 @@
 name: nginxproxymanager-with-crowdsec
 services:
+
+#### Nginx Proxy Manager LePresidente
   nginxproxymanager:
     image: lepresidente/nginx-proxy-manager:latest
+    container_name: npm
+    restart: unless-stopped
     deploy:
       resources:
         reservations:
@@ -20,50 +24,22 @@ services:
       - target: 8181
         published: "81"
         protocol: tcp
-    restart: unless-stopped
-    volumes:
-      - type: bind
-        source: /DATA/AppData/$AppID/config
-        target: /config
-      - type: bind
-        source: /DATA/AppData/$AppID/crowdsec/templates
-        target: /templates
-    depends_on:
-      - mariadb
-
-    x-casaos:
-      ports:
-        - container: "80"
-          description:
-            en_us: Nginx HTTP Port
-        - container: "443"
-          description:
-            en_us: Nginx HTTPS Port
-        - container: "81"
-          description:
-            en_us: WebUI Port
-
-      volumes:
-        - container: /config
-          description:
-            en_us: Nginx Proxy Manager config directory.
-        - container: /templates
-          description:
-            en_us: Crowdsec templates directory.
-    container_name: npm
-
-  mariadb:
-    image: linuxserver/mariadb:10.11.6
-    restart: unless-stopped
     environment:
       PUID: $PUID
       PGID: $PGID
       TZ: $TZ
-      MYSQL_ROOT_PASSWORD: 'casaos'
-      MYSQL_DATABASE: 'casaos'
-      MYSQL_USER: 'casaos'
-      MYSQL_PASSWORD: 'casaos'
-      REMOTE_SQL: ''
+      LANG: fr_FR.UTF-8
+      DISABLE_IPV6: 1
+    volumes:
+      - type: bind
+        source: /DATA/AppData/$AppID/config
+        target: /config:rw
+      - type: bind
+        source: /DATA/AppData/$AppID/config/crowdsec/templates
+        target: /templates:ro
+    depends_on:
+      - mariadb
+
     x-casaos:
       envs:
         - container: PUID
@@ -74,7 +50,71 @@ services:
             en_us: for GroupID
         - container: TZ
           description:
-            en_us: specify a timezone to use, see this list.
+            en_us: Specify a timezone to use, see this list. (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+            fr_fr: Choix de la TimeZone a utiliser. (Ex. Europe/Paris) (Voir la list ici https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+        - container: LANG
+          description:
+            en_us: Specify language to use. (https://en.wikipedia.org/wiki/ISO_3166-1#Current_codes and https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes)
+            fr_fr: Choix de la langue a utiliser. (Ex. fr_FR.UTF-8) (https://en.wikipedia.org/wiki/ISO_3166-1#Current_codes et https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes)
+        - container: DISABLE_IPV6
+          description:
+            en_us: Specify if enable (0) or disable (1) IPv6.
+            fr_fr: Savoir si vus souhautez activer (0) ou desactiver (1) l'IPV6.     
+      ports:
+        - container: "8080"
+          description:
+            en_us: Nginx HTTP Port
+        - container: "4443"
+          description:
+            en_us: Nginx HTTPS Port
+        - container: "8181"
+          description:
+            en_us: WebUI Port
+      volumes:
+        - container: /config
+          description:
+            en_us: Nginx Proxy Manager config directory.
+        - container: /templates
+          description:
+            en_us: Crowdsec templates directory inside npm config directory.
+
+
+  mariadb:
+    image: linuxserver/mariadb:10.11.6
+    container_name: npm_mariadb
+    restart: unless-stopped
+    networks:
+      - npm_db_network
+    ports:
+      - target: 3306
+        published: "3306"
+        protocol: tcp
+    environment:
+      PUID: $PUID
+      PGID: $PGID
+      TZ: $TZ
+      MYSQL_ROOT_PASSWORD: 'casaos'
+      MYSQL_DATABASE: 'casaos'
+      MYSQL_USER: 'casaos'
+      MYSQL_PASSWORD: 'casaos'
+      REMOTE_SQL: ''
+    volumes:
+      - type: bind
+        source: /DATA/AppData/$AppID/mysql/config
+        target: /config
+
+    x-casaos:
+      envs:
+        - container: PUID
+          description:
+            en_us: for UserID
+        - container: PGID
+          description:
+            en_us: for GroupID
+        - container: TZ
+          description:
+            en_us: Specify a timezone to use, see this list. (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+            fr_fr: Choix de la TimeZone a utiliser. (Ex. Europe/Paris) (Voir la list ici https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
         - container: MYSQL_ROOT_PASSWORD
           description:
             en_us: Set this to root password for installation (minimum 4 characters & non-alphanumeric passwords must be properly escaped).
@@ -90,29 +130,29 @@ services:
         - container: REMOTE_SQL
           description:
             en_us: Set this to ingest sql files from an http/https endpoint (comma seperated array).
-    networks:
-      - npm_db_network
-    ports:
-      - target: 3306
-        published: "3306"
-        protocol: tcp
-    volumes:
-      - type: bind
-        source: /DATA/AppData/$AppID/mariadb/config
-        target: /config
-    container_name: mariadb
+      ports:
+        - container: "3306"
+          description:
+            en_us: MariaDB port
+      volumes:
+        - container: /config
+          description:
+            en_us: MariaDB config directory.
 
   crowdsec:
     image: crowdsecurity/crowdsec:v1.6.0-1
+    container_name: crowdsec
     restart: unless-stopped
+    networks:
+      - npm_crowdsec_network
+    expose:
+      - 8080
     environment:
       PUID: $PUID
       PGID: $PGID
       TZ: $TZ
       COLLECTIONS: crowdsecurity/nginx-proxy-manager
       CROWDSEC_API: $CROWDSEC_API
-    networks:
-      - npm_crowdsec_network
     volumes:
       - type: bind
         source: /DATA/AppData/$AppID/crowdsec/data
@@ -128,6 +168,7 @@ services:
         target: /var/log/nginx:ro
     security_opt:
       - no-new-privileges=true
+
     x-casaos:
       envs:
         - container: PUID
@@ -138,26 +179,35 @@ services:
             en_us: for GroupID
         - container: TZ
           description:
-            en_us: specify a timezone to use, see this list.
+            en_us: Specify a timezone to use, see this list. (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+            fr_fr: Choix de la TimeZone a utiliser. (Ex. Europe/Paris) (Voir la list ici https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+        - container: COLLECTIONS
+          description:
+            en_us: A REMPLIR
         - container: CROWDSEC_API
           description:
-            en_us: Set Crowdsec API to generate with `docker exec crowdsec_npm cscli bouncers add npm-proxy`.
+            en_us: Set Crowdsec API to generate with `sudo docker exec crwdsec_container_name cscli bouncers add npm-proxy` and add to .
       volumes:
-        - container: /crowdsec/data
+        - container: /var/lib/crowdsec/data
           description:
             en_us: Crowdsec data directory.
-        - container: /crowdsec/config
+        - container: /etc/crowdsec
           description:
             en_us: Crowdsec config directory.
-    container_name: crowdsec
+        - container: /var/log/auth.log
+          description:
+            en_us: XXXXXXXXXXXXXXX.
+        - container: /var/log/nginx
+          description:
+            en_us: XXXXXXXXXXXXX.
 
 networks:
   npm_network:
-    driver: bridge
+    name: npm_network
   npm_db_network:
-    driver: bridge
+    name: npm_db_network
   npm_crowdsec_network:
-    driver: bridge
+    name: npm_crowdsec_network
 
 x-casaos:
   architectures:
@@ -199,4 +249,4 @@ x-casaos:
     en_us: McFly Nginx Proxy Manager
 
   index: /
-  port_map: "81"
+  port_map: "8181"
